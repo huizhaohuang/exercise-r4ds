@@ -4,26 +4,265 @@ output: html_document
 date: "2025-09-12"
 ---
 
+25.1.1 Prerequisites
+
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## R Markdown
-
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r cars}
-summary(cars)
+```{r}
+library(tidyverse)
+library(nycflights13)
 ```
 
-## Including Plots
+25.2 Vector functions
 
-You can also embed plots, for example:
+```{r}
+df <- tibble(
+  a = rnorm(5),
+  b = rnorm(5),
+  c = rnorm(5),
+  d = rnorm(5),
+)
+print(df)
+```
+name <- function(arguments) {
+  body
+}
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+```{r}
+rescale01 <- function(x){
+  (x - min(x, na.rm = TRUE))/(max(x, na.rm = TRUE) - min(x, na.rm = TRUE))
+}
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+apply rescale01 to df
+
+```{r}
+df |>
+  mutate(
+    a = rescale01(a),
+    b = rescale01(b),
+    c = rescale01(c),
+    d = rescale01(d)
+  )
+```
+25.2.2 Improving our function
+
+```{r}
+rescale01 <- function(x){
+  rng <- range(x, na.rm = TRUE)
+  (x - rng[1]) / (rng[2] - rng[1])
+}
+```
+
+25.2.3 Mutate functions
+
+```{r}
+z_score <- function(x){
+  (x - mena(x, na.rm = TRUE)) / sd(x, na.rm = TRUE)
+}
+```
+
+```{r}
+clamp <- function(x, min, max){
+  case_when(
+    x < min ~ min,
+    x > max ~ max,
+    .default = x
+  )
+}
+clamp(1:10, min = 4, max = 9)
+```
+```{r}
+first_upper <- function(x){
+  str_sub(x, 1, 1) <- str_to_upper(str_sub(x, 1, 1))
+  x
+}
+print(first_upper("an apple is on the table"))
+```
+```{r}
+clear_number <- function(x){
+  is_pct <- str_detect(x, "%")
+  num <- x |>
+    str_remove_all("%") |>
+    str_remove_all(",") |>
+    str_remove_all(fixed("$")) |>
+    as.numeric()
+  if_else(is_pct, num / 100, num)
+}
+clear_number("89.9%")
+```
+
+25.2.4 Summary functions
+
+25.2.5 Exercises
+
+1. Practice turning the following code snippets into functions. Think about what each function does. What would you call it? How many arguments does it need?
+
+```{r}
+mean(is.na(x))
+mean(is.na(y))
+mean(is.na(z))
+
+x / sum(x, na.rm = TRUE)
+y / sum(y, na.rm = TRUE)
+z / sum(z, na.rm = TRUE)
+
+round(x / sum(x, na.rm = TRUE) * 100, 1)
+round(y / sum(y, na.rm = TRUE) * 100, 1)
+round(z / sum(z, na.rm = TRUE) * 100, 1)
+```
+
+3. Given a vector of birthdates, write a function to compute the age in years.
+
+```{r}
+birthdates <- c("06.04.1996", "15.05.1990", "04.06,1989", "09.05.1987")
+
+age <- function(x){
+  year <- as.numeric(str_sub(x, -4, -1))
+  birthyear <- 2025 - year
+}
+
+print(age(birthdates))
+```
+
+4. Write your own functions to compute the variance and skewness of a numeric vector. You can look up the definitions on Wikipedia or elsewhere.
+
+```{r}
+variance <- function(x){
+  n <- sum(!is.na(x))
+  sum((x - mean(x, na.rm = TRUE)) ^ 2, na.rm = TRUE) / (n - 1)
+}
+
+skewness <- function(x){
+  (mean(x, na.rm = TRUE) - median(x, na.rm = TRUE)) / sd(x, na.rm = TRUE)
+}
+
+x <- c(1, 3, 4, 4, 5, 6, 9, 10, NA)
+variance(x)
+skewness(x)
+
+```
+
+5.Write both_na(), a summary function that takes two vectors of the same length and returns the number of positions that have an NA in both vectors.
+
+```{r}
+both_na <- function(x, y){
+  if(length(x) == length(y)){
+    sum(is.na(x) & is.na(y))
+  }
+  else{
+    return("Error!")
+  }
+}
+
+x <- c(1, NA, 3, NA, 5)
+y <- c(NA, NA, 3, NA, 8)
+both_na(x, y)
+```
+
+6.Read the documentation to figure out what the following functions do. Why are they useful even though they are so short?
+
+```{r}
+is_directory <- function(x) {
+  file.info(x)$isdir
+}
+is_readable <- function(x) {
+  file.access(x, 4) == 0
+}
+```
+
+25.3 Data frame functions
+
+25.3.1 Indirection and tidy evaluation
+
+```{r}
+grouped_mean <- function(df, group_var, mean_var) {
+  df |> 
+    group_by({{ group_var }}) |> 
+    summarize(mean({{ mean_var }}))
+}
+
+df |> grouped_mean(group, x)
+```
+
+25.3.2 When to embrace?
+
+Data-masking: this is used in functions like arrange(), filter(), and summarize() that compute with variables.
+
+Tidy-selection: this is used for functions like select(), relocate(), and rename() that select variables.
+
+25.3.3 Common use cases
+
+(Whenever you wrap summarize() in a helper, we think it’s good practice to set .groups = "drop" to both avoid the message and leave the data in an ungrouped state.)
+
+25.3.4 Data-masking vs. tidy-selection
+
+25.3.5 Exercises
+
+1. Using the datasets from nycflights13, write a function that:
+  a.Finds all flights that were cancelled (i.e. is.na(arr_time)) or delayed by more than an hour.
+
+```{r}
+rm(flights)
+library(nycflights13)
+library(tidyverse)
+flights <- flights
+View(flights)
+```
+```{r}
+
+filter_severe <- function(data, arr_time_col, arr_delay_col){
+  data |> filter(is.na({{arr_time_col}}) | ({{arr_delay_col}}) > 60)
+}
+flights |> filter_severe(arr_time, arr_delay)
+```
+Here, arr_time_col and arr_delay_col are arguments of the function.
+Inside dplyr::filter(), you can’t just write arr_time_col because filter() expects a column name from the dataset, not the function argument.
+{{ }} tells dplyr:“Unquote the argument and evaluate it as if the user had typed the column name directly.”
+
+  b.Counts the number of cancelled flights and the number of flights delayed by more than an hour.
+
+warning!wrong case:
+summarize_severe <- function(data, arr_time_col, arr_delay_col){
+  data %>%
+    summarise(
+      num_cancelled_flights   = n(is.na({{ arr_time_col }})),
+      num_severedelayed_flights = n({{ arr_delay_col }} > 60, na.rm = TRUE),
+      .groups = "drop"
+    )
+}
+n() just returns the number of rows in the current group. To count rows that satisfy a condition, use sum(condition) (or mean(condition) for a proportion).
+  n() → count all rows in the group.
+  sum(condition) → count rows where condition is TRUE.
+
+```{r}
+summarize_severe <- function(data, arr_time_col, arr_delay_col){
+  data |> summarize(
+    num_cancelled_filghts = sum(is.na({{arr_time_col}})),
+    num_severedelayed_flights = sum(({{arr_delay_col}}) > 60, na.rm = TRUE),
+    .group = "drop"
+  )
+}
+
+flights |> group_by(dest) |> summarize_severe(arr_time, arr_delay)
+```
+
+  3. Finds all flights that were cancelled or delayed by more than a user supplied number of hours:
+```{r}
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
