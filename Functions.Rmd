@@ -4,7 +4,7 @@ output: html_document
 date: "2025-09-12"
 ---
 
-25.1.1 Prerequisites
+## 25.1.1 Prerequisites
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
@@ -15,7 +15,7 @@ library(tidyverse)
 library(nycflights13)
 ```
 
-25.2 Vector functions
+## 25.2 Vector functions
 
 ```{r}
 df <- tibble(
@@ -47,7 +47,7 @@ df |>
     d = rescale01(d)
   )
 ```
-25.2.2 Improving our function
+## 25.2.2 Improving our function
 
 ```{r}
 rescale01 <- function(x){
@@ -56,7 +56,7 @@ rescale01 <- function(x){
 }
 ```
 
-25.2.3 Mutate functions
+## 25.2.3 Mutate functions
 
 ```{r}
 z_score <- function(x){
@@ -94,9 +94,9 @@ clear_number <- function(x){
 clear_number("89.9%")
 ```
 
-25.2.4 Summary functions
+## 25.2.4 Summary functions
 
-25.2.5 Exercises
+## 25.2.5 Exercises
 
 1. Practice turning the following code snippets into functions. Think about what each function does. What would you call it? How many arguments does it need?
 
@@ -254,15 +254,10 @@ flights |> group_by(dest) |> summarize_severe(arr_time, arr_delay)
 
 ```
 
-
-
-
-
-
-
-
-
-
+2. Write an R function that capitalizes the first letter of each word in a character vector.
+capitalized_words <- fucntion(x){
+  x <- as.character(x)
+}
 
 
 

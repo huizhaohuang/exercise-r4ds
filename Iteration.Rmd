@@ -1,0 +1,203 @@
+---
+title: "R4DS-iteration"
+output: html_document
+date: "2025-09-22"
+---
+
+```{r setup, include=TRUE}
+library(tidyverse)
+knitr::opts_chunk$set(echo = TRUE)
+```
+# 1. across()
+the first argument, .cols, specifies which columns you want to iterate over
+the second argument, .fns, specifies what to do with each column
+You can use the .names argument when you need additional control over the names of output columns
+
+```{r}
+df <- tibble(
+  a = rnorm(10),
+  b = rnorm(10),
+  c = rnorm(10),
+  d = rnorm(10)
+)
+
+df |> summarize(
+  n = n(),
+  across(a:c, median)
+)
+```
+
+# 1.1 Selecting columns with .cols 
+
+The first argument to across(), .cols, selects the columns to transform. 
+This uses the same specifications as select(), you can use functions like starts_with() and ends_with() to select columns based on their name.
+starts_with("x") → selects all columns whose names begin with "x".
+ends_with("y") → selects all columns whose names end with "y".
+
+```{r}
+starts_with("x") → selects all columns whose names begin with "x".
+ends_with("y") → selects all columns whose names end with "y".
+```
+
+There are two additional selection techniques that are particularly useful for across(): everything() and where(). everything() is straightforward: it selects every (non-grouping) column.
+where() allows you to select columns based on their type:
+
+where(is.numeric) selects all numeric columns.
+where(is.character) selects all string columns.
+where(is.Date) selects all date columns.
+where(is.POSIXct) selects all date-time columns.
+where(is.logical) selects all logical columns.
+
+you can combine these with Boolean algebra. For example, !where(is.numeric) selects all non-numeric columns, and starts_with("a") & where(is.logical) selects all logical columns whose name starts with “a”
+
+```{r}
+df <- tibble(
+  a1 = c(TRUE, FALSE, TRUE),
+  a2 = c(FALSE, FALSE, TRUE),
+  b_num = c(10, 20, 30),
+  c_num = c(1.5, 2.5, 3.5),
+  d_text = c("x", "y", "z"),
+  e_date = as.Date("2025-09-22") + 0:2
+)
+
+df |>
+  mutate(across(where(is.numeric), ~.x * 10))|>
+  mutate(across(!where(is.numeric), ~ as.character(.x))) |>
+  mutate(across(starts_with("a") & where(is.logical), ~ !.x))
+```
+# 1.2 Calling multiple functions
+
+for this sort of throw away, or anonymous1, function you can replace function with \
+ 
+```{r}
+rnorm_na <- function(n, n_na, mean = 0, sd = 1) {
+  sample(c(rnorm(n - n_na, mean = mean, sd = sd), rep(NA, n_na)))
+}
+
+df_miss <- tibble(
+  a = rnorm_na(5, 1),
+  b = rnorm_na(5, 1),
+  c = rnorm_na(5, 2),
+  d = rnorm(5)
+)
+
+df_miss |> 
+  summarize(
+    across(a:d, function(x) median(x, na.rm = TRUE)),
+    n = n()
+  )
+
+# or:
+
+df_miss |> 
+  summarize(
+    across(a:d, \(x) median(x, na.rm = TRUE)),
+    n = n()
+  )
+```
+
+We can find that out by supplying two functions to across(): one to compute the median and the other to count the missing values. You supply multiple functions by using a named list to .fns:
+
+```{r}
+rnorm_na <- function(n, n_na, mean = 0, sd = 1) {
+  sample(c(rnorm(n - n_na, mean = mean, sd = sd), rep(NA, n_na)))
+}
+
+df_miss <- tibble(
+  a = rnorm_na(5, 1),
+  b = rnorm_na(5, 1),
+  c = rnorm_na(5, 2),
+  d = rnorm(5)
+)
+
+df_miss |>
+  summarize(
+    across(everything(), list(
+      median = \(x) median(x, na.rm = TRUE),
+      n_miss = \(x) sum(is.na(x))
+      )
+    )
+  )
+```
+
+# 1.3  Column names
+
+By default, the output of across() is given the same names as the inputs. This means that across() inside of mutate() will replace existing columns. 
+If you’d like to instead create new columns, you can use the .names argument to give the output new names:
+
+```{r}
+df_miss |> 
+  summarize(
+    across(
+      a:d,
+      list(
+        median = \(x) median(x, na.rm = TRUE),
+        n_miss = \(x) sum(is.na(x))
+      ),
+      .names = "{.fn}_{.col}"
+    ),
+    n = n(),
+  )
+```
+
+# 1.4 filter
+if_any(cols, condition)
+→ Returns TRUE if the condition is true for any of the selected columns in that row.
+
+if_all(cols, condition)
+→ Returns TRUE if the condition is true for all of the selected columns in that row.
+
+across() → column-wise transformations.
+if_any() / if_all() → row-wise logical checks across multiple columns.
+
+```{r}
+df <- tibble(
+  x1 = c(1, 5, 0),
+  x2 = c(3, 0, 0),
+  y  = c("a", "b", "c")
+)
+
+df |> filter(if_any(starts_with("x"), ~ .x == 0))
+df |> filter(if_all(starts_with("x"), ~ .x == 0))
+
+```
+
+
+##!!!!!!look at pivot_longer()
+
+##!!!!!!!Exercises
+
+1. Practice your across() skills by:
+
+  1.1 Computing the number of unique values in each column of palmerpenguins::penguins.
+
+  1.2 Computing the mean of every column in mtcars.
+
+  1.3 Grouping diamonds by cut, clarity, and color then counting the number of observations and computing the mean of each numeric column.
+
+2. What happens if you use a list of functions in across(), but don’t name them? How is the output named?
+
+3. Adjust expand_dates() to automatically remove the date columns after they’ve been expanded. Do you need to embrace any arguments?
+
+4. Explain what each step of the pipeline in this function does. What special feature of where() are we taking advantage of?
+
+```{r}
+show_missing <- function(df, group_vars, summary_vars = everything()) {
+  df |> 
+    group_by(pick({{ group_vars }})) |> 
+    summarize(
+      across({{ summary_vars }}, \(x) sum(is.na(x))),
+      .groups = "drop"
+    ) |>
+    select(where(\(x) any(x > 0)))
+}
+nycflights13::flights |> show_missing(c(year, month, day))
+```
+
+## 2. map()
+
+
+
+
+
+
