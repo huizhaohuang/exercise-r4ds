@@ -196,6 +196,110 @@ nycflights13::flights |> show_missing(c(year, month, day))
 
 ## 2. map()
 
+## 2.1 list files
+The first argument, path, is the directory to look in.
+
+pattern is a regular expression used to filter the file names. The most common pattern is something like [.]xlsx$ or [.]csv$ to find all files with a specified extension.
+
+full.names determines whether or not the directory name should be included in the output. You almost always want this to be TRUE.
+
+```{r}
+paths <- list.files("data/gapminder", pattern = "[.]xlsx$", full.names = TRUE)
+files <- map(paths, readxl::read_excel)
+list_rbind(files)
+```
+
+What if we want to pass in extra arguments to read_excel()?
+
+```{r}
+paths |> 
+  map(\(path) readxl::read_excel(path, n_max = 1)) |> 
+  list_rbind()
+```
+
+## 2.2 data in path
+
+Sometimes the name of the file is data itself.
+First, we name the vector of paths. The easiest way to do this is with the set_names() function, which can take a function. Here we use basename() to extract just the file name from the full path:
+
+```{r}
+paths |> set_names(basename) 
+files <- paths |> 
+  set_names(basename) |> 
+  map(readxl::read_excel)
+
+# You can also use [[ to extract elements by name:
+
+files[["1962.xlsx"]]
+
+#Then we use the names_to argument to list_rbind() to tell it to save the names into a new column called year 
+# then use readr::parse_number() to extract the number from the string.
+
+paths |> 
+  set_names(basename) |> 
+  map(readxl::read_excel) |> 
+  list_rbind(names_to = "year") |> 
+  mutate(year = parse_number(year))
+```
+
+## 2.3 Save your work
+
+```{r}
+gapminder <- paths |> 
+  set_names(basename) |> 
+  map(readxl::read_excel) |> 
+  list_rbind(names_to = "year") |> 
+  mutate(year = parse_number(year))
+
+write_csv(gapminder, "gapminder.csv")
+```
+
+## 2.4 Many simple iterations
+
+In our experience most folks reach first for one complex iteration, but you’re often better by doing multiple simple iterations.
+
+```{r}
+
+process_file <- function(path) {
+  df <- read_csv(path)
+  
+  df |> 
+    filter(!is.na(id)) |> 
+    mutate(id = tolower(id)) |> 
+    pivot_longer(jan:dec, names_to = "month")
+}
+
+paths |> 
+  map(process_file) |> 
+  list_rbind()
+
+# recommended one:
+
+paths |>
+  map(\(df) df |> filter(!is.na(id))) |>
+  map(\(df) df |> mutate(id = tolower(id))) |> 
+  map(\(df) df |> pivot_longer(jan:dec, names_to = "month")) |> 
+  list_rbind()
+
+# or by binding all the data frames together earlier
+
+paths |> 
+  map(read_csv) |> 
+  list_rbind() |> 
+  filter(!is.na(id)) |> 
+  mutate(id = tolower(id)) |> 
+  pivot_longer(jan:dec, names_to = "month")
+
+```
+
+## 2.5 Heterogeneous data
+
+Unfortunately, sometimes it’s not possible to go from map() straight to list_rbind() because the data frames are so heterogeneous that list_rbind() either fails or yields a data frame that’s not very useful.
+
+
+
+
+
 
 
 
